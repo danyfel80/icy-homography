@@ -42,6 +42,9 @@ public class Homography extends EzPlug implements Block {
 	protected void initialize() {
 		inSequence1 = new EzVarSequence("Sequence 1");
 		inSequence2 = new EzVarSequence("Sequence 2");
+		
+		addEzComponent(inSequence1);
+		addEzComponent(inSequence2);
 	}
 
 	/*
@@ -54,18 +57,44 @@ public class Homography extends EzPlug implements Block {
 		validateInput();
 		seq1 = inSequence1.getValue();
 		seq2 = inSequence2.getValue();
+		
+		// Compute homography
 		HomographyEstimation he = new HomographyEstimation(seq1, seq2);
+		long startTime = System.nanoTime();
 		he.execute();
-		System.out.println("The transformation parameters are: " + he.getTransformation());
+		long endTime = System.nanoTime();
+		System.out.print("The transformation parameters are: [");
+		for (double d : he.getTransformation()) {
+			System.out.print("" + d + ", ");
+		}
+		System.out.println(String.format("] in %f msecs.", (endTime - startTime) / 1000000d));
+		
+		// non-interpolated transformation
+		startTime = System.nanoTime();
 		seq2Transfromed = new Sequence(seq2.getName() + "_Transformed");
-		he.getImageTransformation(seq2Transfromed);
+		he.getImageTransformationWithoutInterpolation(seq2Transfromed);
+		endTime = System.nanoTime();
+		System.out.println(String.format("Transformation without interpolation = %f msecs.", (endTime - startTime) / 1000000d));
+		
+		// interpolated transformation
+		startTime = System.nanoTime();
+		Sequence seq2TransformedInterpolated = new Sequence(seq2.getName() + "_TransformedInt");
+		he.getImageTransformation(seq2TransformedInterpolated);
+		endTime = System.nanoTime();
+		System.out.println(String.format("Transformation with interpolation = %f msecs.", (endTime - startTime) / 1000000d));
+		
+		// Show results
 		if (outSequence != null) {
 			outSequence.setValue(seq2Transfromed);
 		} else {
 			addSequence(seq2Transfromed);
+			addSequence(seq2TransformedInterpolated);
 		}
 	}
 
+	/**
+	 * Validates input parameters
+	 */
 	private void validateInput() {
 		if (inSequence1.getValue() == null || inSequence1.getValue().isEmpty()) {
 			MessageDialog.showDialog("Wrong input image 1", "Error", MessageDialog.ERROR_MESSAGE);
